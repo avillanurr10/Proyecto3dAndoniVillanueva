@@ -1,5 +1,7 @@
 using UnityEngine;
+using System.Collections;
 
+[RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movimiento")]
@@ -7,40 +9,61 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 5f;
     public float gravityScale = 2f;
 
-    private Vector3 moveDirection;
     private CharacterController playerController;
+    private Vector3 moveDirection;
+    private float yVelocity;
+
+    [Header("Ataque")]
+    public float attackCooldown = 0.8f;
+    private bool canAttack = true;
+    public bool IsAttacking { get; private set; }   // <- NUEVO
+
+    [Header("Estados")]
+    public bool isDead = false;
+    public bool isHit = false;
+    private bool isInvulnerable = false;
 
     [Header("Referencias")]
     public Camera playerCamera;
-    public Transform playerModel; // Arrastra tu Hero_Ice aquí
-    public Animator animator;     // Arrastra el Animator de Hero_Ice aquí (opcional, si no, se busca automáticamente)
+    public Transform playerModel;   
+    public Animator animator;      
+    public GameObject mesh;        
 
-    private float yVelocity;
+    private Vector3 spawnPoint;
+
+    [Header("Animaciones")]
+    public float hitAnimDuration = 0.75f;
+    public float deathAnimDuration = 1.17f;
+    public float respawnDelay = 0.5f;
 
     void Start()
     {
         playerController = GetComponent<CharacterController>();
+        spawnPoint = transform.position;
 
-        // Busca Animator automáticamente si no está asignado
-        if (animator == null)
-        {
-            animator = GetComponentInChildren<Animator>();
-        }
+        if (animator == null && playerModel != null)
+            animator = playerModel.GetComponent<Animator>();
 
-        // Si playerModel no está asignado, usar el Transform del Animator
-        if (playerModel == null && animator != null)
-        {
-            playerModel = animator.transform;
-        }
+        if (mesh == null && playerModel != null)
+            mesh = playerModel.GetChild(0).gameObject;
     }
 
-    void FixedUpdate()
+    void Update()
     {
-        // --- MOVIMIENTO ---
+        if (isDead) return;
+
+        if (!IsAttacking && !isHit)  // <- CORREGIDO
+            HandleMovement();
+
+        HandleAttack();
+        HandleAnimations();
+    }
+
+    void HandleMovement()
+    {
         float moveX = Input.GetAxisRaw("Horizontal");
         float moveZ = Input.GetAxisRaw("Vertical");
 
-        // Movimiento relativo a la cámara
         Vector3 camForward = playerCamera.transform.forward;
         Vector3 camRight = playerCamera.transform.right;
         camForward.y = 0f;
@@ -48,17 +71,13 @@ public class PlayerMovement : MonoBehaviour
         camForward.Normalize();
         camRight.Normalize();
 
-        moveDirection = (camForward * moveZ + camRight * moveX);
-        moveDirection.Normalize();
+        moveDirection = (camForward * moveZ + camRight * moveX).normalized;
 
-        // --- SALTO Y GRAVEDAD ---
         if (playerController.isGrounded)
         {
             yVelocity = -1f;
             if (Input.GetButtonDown("Jump"))
-            {
                 yVelocity = jumpForce;
-            }
         }
         else
         {
@@ -67,33 +86,89 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = moveDirection * moveSpeed;
         move.y = yVelocity;
-
         playerController.Move(move * Time.deltaTime);
 
-        // --- ROTACIÓN DEL MODELO ---
         if (moveDirection != Vector3.zero && playerModel != null)
         {
             Quaternion toRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
             playerModel.rotation = Quaternion.Lerp(playerModel.rotation, toRotation, Time.deltaTime * 10f);
         }
+    }
 
-        // --- ANIMACIONES ---
-        HandleAnimations();
+    void HandleAttack()
+    {
+        if (animator == null || IsAttacking || isHit || isDead) return; // <- CORREGIDO
+
+        if (Input.GetMouseButtonDown(0) && canAttack)
+            StartCoroutine(PerformAttack());
+    }
+
+    IEnumerator PerformAttack()
+    {
+        canAttack = false;
+        IsAttacking = true;  // <- CORREGIDO
+
+        animator.SetBool("IsAttacking", true);
+
+        yield return new WaitForSeconds(attackCooldown);
+
+        animator.SetBool("IsAttacking", false);
+        IsAttacking = false;  // <- CORREGIDO
+        canAttack = true;
+    }
+
+    public void TakeHit()
+    {
+        if (isDead || isHit || isInvulnerable) return;
+        StartCoroutine(HitRoutine());
+    }
+
+    private IEnumerator HitRoutine()
+    {
+        isHit = true;
+        isInvulnerable = true;
+
+        animator.SetTrigger("Hit");
+
+        yield return new WaitForSeconds(hitAnimDuration);
+
+        isHit = false;
+
+        yield return new WaitForSeconds(0.1f);
+        isInvulnerable = false;
+    }
+
+    public void DieAndRespawn()
+    {
+        if (!isDead)
+            StartCoroutine(DeathRoutine());
+    }
+
+    private IEnumerator DeathRoutine()
+    {
+        isDead = true;
+
+        animator.SetTrigger("Death");
+
+        playerController.enabled = false;
+
+        yield return new WaitForSeconds(deathAnimDuration + respawnDelay);
+
+        transform.position = spawnPoint;
+        playerController.enabled = true;
+
+        isDead = false;
     }
 
     void HandleAnimations()
     {
         if (animator == null) return;
 
-        // Velocidad horizontal real
         Vector3 horizontalVelocity = playerController.velocity;
         horizontalVelocity.y = 0;
+        float speed = horizontalVelocity.magnitude / Mathf.Max(0.01f, moveSpeed);
 
-        float speed = horizontalVelocity.magnitude / moveSpeed;
         animator.SetFloat("Speed", speed);
-
-        // Salto
-        bool isJumping = !playerController.isGrounded || yVelocity > 0.1f;
-        animator.SetBool("IsJumping", isJumping);
+        animator.SetBool("IsJumping", !playerController.isGrounded);
     }
 }
