@@ -6,29 +6,28 @@ public class ThirdPersonCamera_FortniteStyle : MonoBehaviour
     public Transform target; // Jugador
 
     [Header("Ajustes de cámara")]
-    public float distance = 4f;       // Distancia de la cámara al jugador
-    public float height = 1.5f;       // Altura respecto al jugador
-    public float mouseSensitivity = 2f;
-    public float rotationSmoothTime = 0.12f; // suavizado del giro
-    public float followSmoothTime = 0.1f;    // suavizado del movimiento
+    public float distance = 4f;          // Distancia de la cámara al jugador
+    public float height = 1.5f;          // Altura respecto al jugador
+    public float mouseSensitivity = 2f;  
+    public float rotationSmoothTime = 0.12f; 
+    public float followSmoothTime = 0.08f;    // Más rápido y suave
 
     [Header("Límites verticales")]
     public float minYAngle = -35f;
     public float maxYAngle = 60f;
 
-    private float yaw;   // rotación horizontal
-    private float pitch; // rotación vertical
+    private float yaw;
+    private float pitch;
     private Vector3 currentRotation;
     private Vector3 rotationSmoothVelocity;
+    private Vector3 currentPositionVelocity;
 
     void Start()
     {
-        // Inicializar mirando hacia adelante
         Vector3 angles = transform.eulerAngles;
         yaw = angles.y;
         pitch = angles.x;
 
-        // Bloquear cursor estilo Fortnite
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -37,7 +36,7 @@ public class ThirdPersonCamera_FortniteStyle : MonoBehaviour
     {
         if (!target) return;
 
-        // --- CONTROL DE MOUSE ---
+        // --- CONTROL DEL MOUSE ---
         float mouseX = Input.GetAxis("Mouse X");
         float mouseY = Input.GetAxis("Mouse Y");
 
@@ -48,19 +47,13 @@ public class ThirdPersonCamera_FortniteStyle : MonoBehaviour
         // --- SUAVIZAR ROTACIÓN ---
         Vector3 targetRotation = new Vector3(pitch, yaw);
         currentRotation = Vector3.SmoothDamp(currentRotation, targetRotation, ref rotationSmoothVelocity, rotationSmoothTime);
-
-        // Aplicar rotación
         transform.eulerAngles = currentRotation;
 
-        // --- POSICIÓN DE LA CÁMARA ---
-        Vector3 targetPosition = target.position 
-                                 - transform.forward * distance 
-                                 + Vector3.up * height;
+        // --- POSICIÓN DE LA CÁMARA SUAVIZADA ---
+        Vector3 desiredPosition = target.position - transform.forward * distance + Vector3.up * height;
+        transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentPositionVelocity, followSmoothTime);
 
-        transform.position = Vector3.Lerp(transform.position, targetPosition, followSmoothTime);
-
-        // --- OPCIONAL: hacer que el jugador mire donde mira la cámara ---
-        // Si tu jugador tiene un modelo (playerModel) que rota, puedes rotarlo aquí:
-        // playerModel.rotation = Quaternion.Euler(0, yaw, 0);
+        // --- OPCIONAL: ROTO EL PLAYER CON LA CÁMARA ---
+        // target.rotation = Quaternion.Euler(0, yaw, 0); // Comentado si no quieres que el player rote automáticamente
     }
 }

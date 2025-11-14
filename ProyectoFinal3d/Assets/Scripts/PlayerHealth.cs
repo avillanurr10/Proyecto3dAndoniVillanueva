@@ -8,6 +8,11 @@ public class PlayerHealth : MonoBehaviour
 
     private PlayerMovement movement;
 
+    // === GETTERS PARA LA BARRA DE VIDA ===
+    public int VidaActual => currentHealth;
+    public int VidaMaxima => maxHealth;
+    // =====================================
+
     void Start()
     {
         currentHealth = maxHealth;

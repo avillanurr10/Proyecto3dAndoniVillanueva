@@ -13,6 +13,6 @@ public class Stats : MonoBehaviour
     
     public void Update()
     {
-       monedasTxt.text = "MONEDAS: "+ monedas.ToString(); 
+       monedasTxt.text = " "+ monedas.ToString(); 
     }
 }

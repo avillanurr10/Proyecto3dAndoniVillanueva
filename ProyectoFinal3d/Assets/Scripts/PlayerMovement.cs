@@ -16,7 +16,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Ataque")]
     public float attackCooldown = 0.8f;
     private bool canAttack = true;
-    public bool IsAttacking { get; private set; }   // <- NUEVO
+    public bool IsAttacking { get; private set; }
 
     [Header("Estados")]
     public bool isDead = false;
@@ -25,9 +25,12 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Referencias")]
     public Camera playerCamera;
-    public Transform playerModel;   
-    public Animator animator;      
-    public GameObject mesh;        
+    public Transform playerModel;
+    public Animator animator;
+    public GameObject mesh;
+
+    [Header("Audio")]
+    public AudioSource attackAudio;   // ← NUEVO
 
     private Vector3 spawnPoint;
 
@@ -52,7 +55,7 @@ public class PlayerMovement : MonoBehaviour
     {
         if (isDead) return;
 
-        if (!IsAttacking && !isHit)  // <- CORREGIDO
+        if (!IsAttacking && !isHit)
             HandleMovement();
 
         HandleAttack();
@@ -97,7 +100,7 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleAttack()
     {
-        if (animator == null || IsAttacking || isHit || isDead) return; // <- CORREGIDO
+        if (animator == null || IsAttacking || isHit || isDead) return;
 
         if (Input.GetMouseButtonDown(0) && canAttack)
             StartCoroutine(PerformAttack());
@@ -106,14 +109,19 @@ public class PlayerMovement : MonoBehaviour
     IEnumerator PerformAttack()
     {
         canAttack = false;
-        IsAttacking = true;  // <- CORREGIDO
+        IsAttacking = true;
 
         animator.SetBool("IsAttacking", true);
+
+        // -------- SONIDO DEL ATAQUE --------
+        if (attackAudio != null)
+            attackAudio.Play();
+        //------------------------------------
 
         yield return new WaitForSeconds(attackCooldown);
 
         animator.SetBool("IsAttacking", false);
-        IsAttacking = false;  // <- CORREGIDO
+        IsAttacking = false;
         canAttack = true;
     }
 
