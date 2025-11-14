@@ -32,7 +32,7 @@ public class EnemyHealth : MonoBehaviour
 
         currentHealth -= dmg;
 
-        // ⚡ Error antes: mover el transform o usar root motion podía separar el collider
+       
         animator.SetTrigger("Hit");
         StartCoroutine(HitRoutine());
 
@@ -42,7 +42,7 @@ public class EnemyHealth : MonoBehaviour
 
     IEnumerator HitRoutine()
     {
-        // Solo espera la animación de hit, sin mover nada
+      
         yield return new WaitForSeconds(hitDuration);
     }
 
@@ -55,7 +55,7 @@ public class EnemyHealth : MonoBehaviour
 
     IEnumerator DeathRoutine()
     {
-        // ⚡ Error antes: si se movía la malla o root motion estaba activo, collider se separaba
+      
         yield return new WaitForSeconds(deathDuration);
 
         DropCoins();

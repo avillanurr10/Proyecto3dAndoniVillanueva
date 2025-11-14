@@ -47,7 +47,7 @@ public class EnemyAI : MonoBehaviour
         else
             AttackPlayer();
 
-        // ⚡ Muy importante: mover solo con CharacterController
+      
         controller.Move(velocity * Time.deltaTime);
     }
 
@@ -82,10 +82,10 @@ public class EnemyAI : MonoBehaviour
         canAttack = false;
         animator.SetBool("IsAttacking", true);
 
-        // Esperar mitad animación
+      
         yield return new WaitForSeconds(0.5f);
 
-        // ⚡ Solo aplicar daño si sigue en rango y vivo
+        //  Solo aplicar daño si sigue en rango y vivo
         if (Vector3.Distance(transform.position, playerTransform.position) <= attackRange)
         {
             PlayerHealth playerHealth = playerTransform.GetComponentInParent<PlayerHealth>();

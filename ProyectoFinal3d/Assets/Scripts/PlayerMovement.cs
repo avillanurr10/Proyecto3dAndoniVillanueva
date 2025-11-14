@@ -30,7 +30,7 @@ public class PlayerMovement : MonoBehaviour
     public GameObject mesh;
 
     [Header("Audio")]
-    public AudioSource attackAudio;   // ← NUEVO
+    public AudioSource attackAudio;   
 
     private Vector3 spawnPoint;
 

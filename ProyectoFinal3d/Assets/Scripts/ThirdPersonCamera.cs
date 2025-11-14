@@ -53,7 +53,6 @@ public class ThirdPersonCamera_FortniteStyle : MonoBehaviour
         Vector3 desiredPosition = target.position - transform.forward * distance + Vector3.up * height;
         transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentPositionVelocity, followSmoothTime);
 
-        // --- OPCIONAL: ROTO EL PLAYER CON LA CÁMARA ---
-        // target.rotation = Quaternion.Euler(0, yaw, 0); // Comentado si no quieres que el player rote automáticamente
+        
     }
 }
