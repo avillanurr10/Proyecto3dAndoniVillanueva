@@ -14,13 +14,17 @@ Esta guía contiene **absolutamente todas** las funcionalidades del proyecto, co
 
 ## 🔒 2. AUTENTICACIÓN, SEGURIDAD Y PERFIL (El Core)
 *   **Login Híbrido (Email o Username):**
-    *   **Archivo:** `frontend/js/auth/login.js`. Lógica: Verificas si el input no lleva `@`. Si es Username, haces una petición REST a Firestore para obtener el email asociado, antes de pasárselo al backend.
+    *   **Archivo:** `frontend/js/auth/login.js` y `backend/controllers/auth.controller.js`. 
+    *   **Lógica:** Verificas si el input no lleva `@`. Si es Username, usas la REST API de Firestore (`findEmailByUsername`) para obtener el email asociado, antes de pasárselo al backend.
 *   **Session Guard (Reactividad de Sesión Única):**
-    *   **Archivo:** `frontend/js/auth/session-guard.js`. Función clave: `onSnapshot(doc(db, "users", uid))`. Detecta si el UUID cambia desde otra pestaña y expulsa al usuario.
-*   **Perfil Privado y Avatares (Fallback Dinámico):**
-    *   **Archivo:** `frontend/js/user/profile.js`. Función clave: `mostrarDatosPerfil`. Usa el fallback `https://ui-avatars.com/api/?name=${userData.username}&background=random` si no hay foto.
+    *   **Archivo:** `frontend/js/auth/session-guard.js`. Función clave: `onSnapshot(doc(db, "users", uid))`. Detecta si el UUID cambia desde otra pestaña y expulsa al usuario antiguo automáticamente.
+*   **Gestión del Avatar y Subida de Archivos (Multer):**
+    *   **Archivos:** `backend/routes/auth.routes.js` y `frontend/js/user/profile.js`.
+    *   **Qué enseñar:** Enseña la configuración de **Multer** en Node.js (`multer.diskStorage`). *"Para los avatares, uso FormData en el cliente y la librería Multer en Node.js para guardar el archivo físico en el servidor de Render y devolver la URL."*
+*   **Perfil Privado y Fallback Dinámico:**
+    *   **Archivo:** `frontend/js/user/profile.js`. Función clave: `mostrarDatosPerfil`. Si el usuario aún no ha subido avatar con Multer, usas el fallback `https://ui-avatars.com/api/?name=${userData.username}`.
 *   **Seguridad en el Perfil (Re-Autenticación):**
-    *   **Archivo:** `frontend/js/user/profile.js`. Función clave: `reauthenticateWithCredential`. Obliga a meter la contraseña antigua antes de poder cambiar nombre o contraseña.
+    *   **Archivo:** `frontend/js/user/profile.js`. Función clave: `reauthenticateWithCredential`. Obliga a meter la contraseña actual de nuevo antes de poder cambiar datos sensibles.
 
 ---
 
@@ -28,7 +32,7 @@ Esta guía contiene **absolutamente todas** las funcionalidades del proyecto, co
 *Pregunta trampa: "Enséñame qué pasa si de repente hacen 500 peticiones a los partidos, ¿se cae la API?"*
 *   **El Proxy y el `apiCache`:**
     *   **Archivo:** `backend/server.js` (y `services/nbaService.js`). Variable clave: `const apiCache = new Map();`
-    *   **Explicación:** *"Mi frontend llama a mi Node.js (`/api/nba/...`). Mi backend comprueba si los datos están en su RAM (`apiCache.get()`). Si están, los devuelve en <150ms. Si no, los pide a la API, los guarda (`apiCache.set()`), y los devuelve. Así evito los errores 429 de BallDontLie y ESPN."*
+    *   **Explicación:** *"Mi frontend nunca llama a BallDontLie ni a ESPN. Llama a mi Node.js (`/api/nba/...`). Mi backend comprueba si los datos están en su memoria RAM (`apiCache.get()`). Si están, los devuelve en <150ms. Si no, los pide a la API, los guarda (`apiCache.set()`), y los devuelve. Así evito los errores 429 de BallDontLie y ESPN."*
 
 ---
 
@@ -41,10 +45,10 @@ Esta guía contiene **absolutamente todas** las funcionalidades del proyecto, co
     *   **Función clave:** `cargarScoreboard()`. Hace un `Promise.all` al backend para traérse los resultados de NBA y NFL, los ordena por fecha y pinta un carrusel dinámico en el `games-ticker`.
 *   **Noticias RSS y Parseo XML (Data):**
     *   **Archivos:** `backend/controllers/news.controller.js`. Función clave: `cheerio.load(xmlData)`.
-    *   **Explicación:** *"ESPN da un feed XML antiguo. Uso la librería `cheerio` para leerlo como si fuera un DOM HTML, extraer `<title>` y `<link>`, y enviarlo como JSON limpio al frontend."*
-*   **Comentarios en Tiempo Real en las Noticias:**
+    *   **Explicación:** *"ESPN da un feed XML antiguo. Uso la librería `cheerio` para parsearlo como si fuera un DOM HTML, extraer `<title>` y `<link>`, y enviarlo como JSON limpio al frontend."*
+*   **Comentarios y Likes en Tiempo Real en Noticias:**
     *   **Archivo:** `frontend/js/home/app-home.js`.
-    *   **Función clave:** `setupNewsInteractions`. Usa `onSnapshot(doc(db, "news_interactions", newsId))` de Firebase para que si un usuario comenta una noticia, a los demás les aparezca el comentario en tiempo real sin recargar la página.
+    *   **Función clave:** `setupNewsInteractions`. Usa `onSnapshot(doc(db, "news_interactions", newsId))` de Firebase para que los "likes" y comentarios escritos por un usuario le aparezcan al resto en tiempo real sin recargar.
 
 ---
 
@@ -55,57 +59,60 @@ Esta guía contiene **absolutamente todas** las funcionalidades del proyecto, co
 *   **Buscador Inteligente de Jugadores:**
     *   **Archivo:** `frontend/js/players/app-players.js`.
     *   **Función clave:** `fetchPlayers()`.
-    *   **Explicación:** Implementa `searchCache = new Map()` en el lado del cliente (Front) para no hacer peticiones si ya buscaste a "LeBron" hace 10 segundos, optimizando aún más el consumo.
+    *   **Explicación:** Implementa `searchCache = new Map()` en el lado del cliente (Front). Si buscas a "LeBron" y vuelves a buscarlo a los 5 segundos, no hace la petición a la API, lo saca del Map local.
 
 ---
 
 ## 👥 6. COMUNIDAD, BÚSQUEDA Y CHAT
 *   **Buscador de Usuarios Limpio:**
     *   **Archivo:** `frontend/js/user/search-users.js`.
-    *   **Qué enseñar:** Explica cómo te traes los documentos y usas el campo `cleanUsername` para evitar duplicados en los resultados.
+    *   **Qué enseñar:** Explica cómo te traes los documentos y usas el campo `cleanUsername` en un mapa de unicidad para evitar duplicados en los resultados de búsqueda.
 *   **Chat Bidireccional Seguro (WebSockets):**
     *   **Archivos:** `frontend/js/chat/chat.js` (Cliente) y `backend/server.js` (Servidor).
-    *   **Explicación:** *"Uso Socket.io en vez de Firestore porque Firestore cobra por lecturas. Socket.io maneja miles de mensajes en la RAM de mi servidor Node.js gratis."*
-    *   **Seguridad XSS:** Muestra en `chat.js` cómo limpias los mensajes de entrada escapando caracteres `<` para evitar inyecciones de código.
+    *   **Explicación:** *"Uso Socket.io en vez de Firestore porque Firestore cobra por lecturas masivas. Socket.io maneja miles de mensajes efímeros en la RAM de mi servidor Node.js de forma gratuita."*
+    *   **Seguridad XSS:** Muestra en `chat.js` cómo limpias los mensajes de entrada escapando el carácter `<` para bloquear inyecciones de código HTML malicioso.
 *   **Perfil Público de Terceros:**
-    *   **Archivo:** `frontend/js/user/public-profile.js`. Solo devuelves datos estéticos (username, avatar, dream team), nunca credenciales.
+    *   **Archivo:** `frontend/js/user/public-profile.js`. Recuperas los datos con `getDoc`. Solo devuelves datos estéticos (username, avatar, dream team), bloqueando contraseñas por seguridad.
 
 ---
 
-## 🛠️ 7. HERRAMIENTAS PREMIUM Y FAVORITOS
+## 🛠️ 7. HERRAMIENTAS PREMIUM, FAVORITOS Y ANALÍTICA
 *   **Dream Team Builder:**
     *   **Archivo:** `frontend/js/user/dreamteam.js`.
-    *   **Función clave:** Validar las posiciones con el diccionario estático `const CONFIG = { NBA: { positions: ["PG", "SG", "SF", "PF", "C"] } }`. Si la posición que devuelve la API no coincide, el sistema rechaza meter al jugador.
-*   **Gráficos Analíticos (Comparativa):**
-    *   **Archivo:** `frontend/js/analytics/comparison.js` (y `trending.js`).
-    *   **Qué enseñar:** La integración de `Chart.js` (`new Chart(...)`). Cómo extraes PTS, REB y AST y generas un polígono radar interactivo.
+    *   **Función clave:** Validar las posiciones con el diccionario estático `const CONFIG = { NBA: { positions: ["PG", "SG", "SF", "PF", "C"] } }`. El sistema rechaza meter al jugador si su posición en la API no encaja.
+*   **Analítica Comunitaria (Trending Picks):**
+    *   **Archivo:** `frontend/js/analytics/trending.js`.
+    *   **Qué enseñar:** La función `initTrendingPlayers()`. *"Hago un barrido por todos los documentos de usuarios en Firestore (`getDocs`), analizo las alineaciones de todos los Dream Teams de la comunidad, y devuelvo el Top 3 de jugadores más seleccionados globalmente en la NBA y la NFL."*
+*   **Gráficos Analíticos de Jugadores (Comparativa):**
+    *   **Archivo:** `frontend/js/analytics/comparison.js`.
+    *   **Qué enseñar:** La integración de `Chart.js` (`new Chart(...)`). Cómo extraes PTS, REB y AST del JSON y generas un polígono radar interactivo.
 *   **Sistema de Favoritos (Equipos):**
     *   **Archivo:** `frontend/js/user/app-favorites.js` y `profile.js` (`renderFavoritos`).
-    *   **Lógica en el Header:** En `app-home.js`, la función `updateFavBadge()` cuenta los favoritos guardados en localStorage y muestra una burbujita (badge) de notificación dinámica en el Header.
+    *   **Lógica en el Header:** En `app-home.js`, la función `updateFavBadge()` cuenta los equipos guardados en localStorage y muestra una burbujita roja (badge) en el menú de navegación.
 
 ---
 
 ## 💎 8. UI/UX Y ESTANDARIZACIÓN CORPORATIVA
 *   **La Gestión del Header Global:**
     *   **Archivo:** `frontend/js/utils/header-logic.js`. 
-    *   **Qué enseñar:** Centralizaste la lógica del menú hamburguesa, la inserción del nombre del usuario y el botón de logout para no repetir código en cada página HTML.
+    *   **Qué enseñar:** Centralizaste la lógica del menú hamburguesa en móvil, la inyección del nombre del usuario y el botón de logout para no repetir el código JavaScript en cada una de las 10 páginas HTML.
 *   **Coach Pro AI (El Bot / Mascota Virtual):**
     *   **Archivo:** `frontend/js/utils/coach-pro.js`.
-    *   **Explicación:** Una mascota animada con CSS interactiva. Muestra la función que usa `Math.random()` para escupir consejos deportivos ("tips") aleatoriamente en burbujas de diálogo dinámicas.
+    *   **Explicación:** Una mascota animada con CSS. Muestra la función que usa `Math.random()` para imprimir consejos deportivos aleatorios en las burbujas de diálogo del DOM.
 *   **Material Icons vs Emojis:**
     *   **Archivos:** `index.html` (Cabecera).
-    *   **Explicación:** *"Los emojis nativos (✅, 🏀) se ven distintos en iOS y Windows. Los sustituí por `<span class="material-icons">`, garantizando píxel-perfect en cualquier dispositivo."*
+    *   **Explicación:** *"Los emojis nativos (✅, 🏀) se ven distintos en iOS y Windows. Los sustituí por `<span class="material-icons">` de Google, garantizando píxel-perfect corporativo en cualquier pantalla."*
 *   **Deuda Técnica del CSS (La excusa perfecta):**
     *   **Archivo:** `frontend/css/style.css`.
-    *   **Aprende esto de memoria:** *"El 'Dark Glassmorphism' requiere propiedades muy pesadas: `backdrop-filter: blur`, variables nativas, animaciones `skeletons`. El archivo llegó a +6000 líneas. Mi primera tarea de mejora futura sería migrar a SCSS (SASS). Prioricé la estabilidad funcional antes que refactorizar todo el diseño a última hora."*
+    *   **Aprende esto de memoria:** *"El 'Dark Glassmorphism' requiere propiedades muy pesadas: `backdrop-filter: blur`, variables nativas, animaciones `skeletons` para la carga. El archivo llegó a +6000 líneas. Mi primera tarea de mejora futura (reflejada en la Memoria) es migrar a SASS y modularizarlo. Prioricé la estabilidad de los WebSockets y la API antes que refactorizar todo el diseño."*
 *   **Mapeo Estático de Logos:**
     *   **Archivo:** `frontend/js/config/logos-config.js`.
-    *   **Explicación:** *"ESPN llama a un equipo 'L.A. Lakers' y BallDontLie 'Los Angeles Lakers'. Este diccionario hace de traductor para que el escudo nunca falle."*
+    *   **Explicación:** *"ESPN llama a un equipo 'L.A. Lakers' y BallDontLie 'Los Angeles Lakers'. Si no coinciden las strings, el logo se rompe. Este diccionario hace de traductor universal para que el escudo nunca falle."*
 
 ---
 
 ## 🛑 CONSEJOS CLAVE PARA EL TRIBUNAL
-1.  **NO uses el ratón para abrir archivos.** Pulsa **`Ctrl + P`**, teclea `app-home.js` o el que quieras, y pulsa Enter. Demuestra dominio Senior.
-2.  **Busca líneas rápido:** Pulsa **`Ctrl + F`** dentro del archivo (ej. buscas `apiCache`, `socket.io` o `onSnapshot`).
-3.  **Llévalos a tu terreno:** Si dudan de algo visual, enséñales el bot `coach-pro.js`. Si dudan de rendimiento, salta a `server.js` y enséñales la caché.
-4.  **Si te dicen "Falta X":** *"Totalmente cierto. Fue una decisión de arquitectura. Por límites del MVP lo tengo apuntado en la memoria (Líneas Futuras) para una próxima iteración."*
+1.  **NO uses el ratón para abrir archivos.** Pulsa **`Ctrl + P`**, teclea `app-home.js` o el que quieras, y pulsa Enter. Demuestra soltura Senior.
+2.  **Busca líneas rápido:** Pulsa **`Ctrl + F`** dentro del archivo (ej. buscas `multer`, `apiCache`, `socket.io` o `cheerio`).
+3.  **Llévalos a tu terreno:** Si dudan de algo visual, enséñales la lógica de la comunidad `trending.js` o el bot `coach-pro.js`. Si dudan de rendimiento, salta a `server.js` y enséñales la caché.
+4.  **Si te dicen "Falta X":** *"Efectivamente. Fue una decisión consciente de arquitectura para delimitar el MVP. Lo tengo apuntado en la memoria en el apartado de Líneas Futuras para una próxima iteración de desarrollo."*
